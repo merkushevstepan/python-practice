@@ -5,6 +5,7 @@ import requests
 # Далее идем циклом по выгруженным данным и достаем инфу про введенную пользователем монету
 # Скрипт достает id монеты и достает данные по ссылке https://api.coinlore.net/api/ticker/?id=ВВЕДЕННОЕ IP
 # Показывает красивую статистику
+
 URL_TO_FIND_ID = "https://api.coinlore.net/api/assets/"
 URL_TO_GET_INFORMATION = "https://api.coinlore.net/api/ticker/"
 
@@ -25,84 +26,73 @@ def validation_of_crypto_name(crypto_name):  # -> на вход дается с�
     return actual_crypto_name  # -> Возвращает название монеты в стандартном виде BTC. ETH и т.д
 
 
-# Функция для проверки работоспособности запроса
-def check_request(url):  # -> на вход дается обычная ссылка из переменных URL_TO_GET_INFORMATION либо URL_TO_FIND_ID
+# Функция для проверки работоспособности запроса https://api.coinlore.net/api/assets/
+def check_request(URL_TO_FIND_ID):  # -> на вход дается обычная URL_TO_FIND_ID
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(URL_TO_FIND_ID, timeout=10)
         if response.status_code != 200:
             print(f"Ошибка в передаче запроса. Код ошибки: {response.status_code}")
-            return False  # -> Возвращает False, если запрос оказался с ошибкой
-        return True  # -> Возвращает True, если запрос прошел успешно
+            return False
+        return response.json()  # -> Возвращает Данные если запрос прошел успешно
     except requests.exceptions.RequestException:
         print('Ошибка запроса')
         return False
 
 
-# Функция, выгружающая данные с запроса по ссылке URL_TO_FIND_ID = "https://api.coinlore.net/api/assets/"
-def download_information_for_find_id():
-    result = check_request(URL_TO_FIND_ID)
-    if result != True:  # -> Если запрос оказался с ошибкой - возвращает False
-        return result
-    response = requests.get(URL_TO_FIND_ID, timeout=10)
-    information = response.json()
-    return information  # -> Возвращает объем данных {"data": [{"id": "90","symbol": "BTC","name": "Bitcoin","nameid": "bitcoin","rank": 1},{"id": "80","symbol": "ETH","name": "Ethereum","nameid": "ethereum","rank": 2 И Т.Д
-
-
-# #Функция, которая ищет введенную пользователем криптовалюту среди данных в information из download_information_for_find_id():
-def find_id_in_information(crypto_name):
-    total_information = download_information_for_find_id() # -> Выгружаем данные {"data": [{"id": "90","symbol": "BTC"} из def download_information_for_find_id()
-    if not total_information:
-        return False  # -> Проверяем название монеты на валидность через написанную функцию
-    actual_crypto_name = validation_of_crypto_name(crypto_name)
-    if actual_crypto_name == False:
+# Функция, которая ищет введенную пользователем криптовалюту среди данных в def check_request(URL_TO_FIND_ID)::
+def find_id_in_information(actual_crypto_name, result):
+    if not result:
         return False
     id_of_users_coin = None
-    for coin in total_information["data"]:  # -> Получается coin = {'id': '295', 'symbol': 'DGC', 'name': 'DigitalCoin', 'nameid': 'digitalcoin', 'rank': 4053}
+    for coin in result[
+        "data"]:
         if coin["symbol"] == actual_crypto_name:
             id_of_users_coin = coin["id"]
             break
     if id_of_users_coin is None:
         print("Ошибка! Монета не нашлась. Перепроверьте название")
-        return False  # -> Возвращаем False, если пользователь ввел ошибочное название и монета не нашлась
+        return False
     return id_of_users_coin  # -> Возвращает id монеты (тип - строка)
 
 
 # Функция для проверки валидности запросов по ссылке для получения информации о конкретной монете
-def check_url_to_get_information(URL_TO_GET_INFORMATION, crypto_name): # -> На вход монета и ссылка
-    if not find_id_in_information(crypto_name):
-        return False
-    id_of_users_coin = find_id_in_information(crypto_name)
+def check_url_to_get_information(URL_TO_GET_INFORMATION, id_of_users_coin):  # -> На вход id монеты и ссылка
     try:
         response = requests.get(f"{URL_TO_GET_INFORMATION}", params={"id": id_of_users_coin}, timeout=10)
         if response.status_code != 200:
             print(f"Ошибка получения данных о монете. Код ошибки: {response.status_code}")
-            return False  # -> Возвращает False если произошла ошибка в запросе
-        return response.json()  # -> Возвращает данные, если запрос успешен | [{'id': '90', 'symbol': 'BTC', 'name': 'Bitcoin', 'nameid': 'bitcoin', 'rank': 1, 'price_usd': '75644.24', 'percent_change_24h': '-6.00', 'percent_change_1h': '0.06', 'percent_change_7d': '-6.22', 'price_btc': '1.00', 'market_cap_usd': '1510679848115.70', 'volume24': 124679217964.9128, 'volume24a': 123370898601.19148, 'csupply': '19970852.00', 'tsupply': '19970852', 'msupply': '21000000'}]
+            return False
+        return response.json()
     except requests.exceptions.RequestException:
         print('Ошибка запроса')
-        return False  # -> Возвращает False если произошла ошибка в запросе
-
-
-# Функция, достающая актуальные данные для монеты, которую ввел пользователь. Для нее нужно вызвать все преждевременные проверки
-def get_data_with_crypto_id(crypto_name):
-    data = check_url_to_get_information(URL_TO_GET_INFORMATION, crypto_name)
-    return data
-
+        return False
 
 
 def main():
+    result = check_request(URL_TO_FIND_ID)
+    if not result:
+        print("Не удалось загрузить базу монет.")
+        return
     while True:
-        crypto_name = input("Введите название криптовалюты в трехбуквенном формате (BTC, ETH, BNB и т.д) для получения статистики\n-> ")
-        if validation_of_crypto_name(crypto_name) and find_id_in_information(crypto_name):
-            break
-    data = get_data_with_crypto_id(crypto_name)
-    if find_id_in_information(crypto_name):
-        print(f"МОНЕТА: {data[0]["name"]}")
+        crypto_name = input(
+            "Введите название криптовалюты в трехбуквенном формате (BTC, ETH, BNB и т.д) для получения статистики\n-> ")
+        actual_crypto_name = validation_of_crypto_name(crypto_name)
+        if not actual_crypto_name:
+            continue
+        id_of_users_coin = find_id_in_information(actual_crypto_name, result)
+        if id_of_users_coin:
+                break
+
+    data = check_url_to_get_information(URL_TO_GET_INFORMATION, id_of_users_coin)
+    if data and isinstance(data, list) and len(data) > 0:
+        coin_info = data[0]
+        print(f"МОНЕТА: {coin_info.get('name', 'Неизвестно')}")
         print("----------")
-        print(f"Ранг по рыночной капитализации: {data[0]["rank"]}\nТекущая цена в USD: {data[0]["price_usd"]}")
-        print(f"Изменение цены в % за последние 24 часа: {data[0]["percent_change_24h"]}\nОбъём торгов за 24ч в USD: {data[0]["volume24"]}")
-main()
-# ПЛАН НА ЗАВТРА:
-# 1) Сократить запросы: сейчас 9 за один запуск, нужно 2 (check_request + get дублируются, find_id вызывается 4 раза)
-# 2) В main проверять data, а не find_id_in_information; кавычки в f-строках (работают только на Python 3.12+)
-# 3) По желанию: кэш "тикер -> id" в JSON-файле
+        print(f"Ранг по рыночной капитализации: {coin_info.get('rank', 'Неизвестно')}\nТекущая цена в USD: {coin_info.get('price_usd', 'Неизвестно')}")
+        print(
+            f"Изменение цены в % за последние 24 часа: {coin_info.get('percent_change_24h', 'Неизвестно')}\nОбъём торгов за 24ч в USD: {coin_info.get('volume24', 'Неизвестно')}")
+    else:
+        print("Не удалось получить данные монеты")
+
+if __name__ == "__main__":
+    main()
